@@ -417,10 +417,10 @@ launchctl load ~/Library/LaunchAgents/ai.openclaw.gateway.plist
 
 | | Anthropic API | Claude Max + Proxy |
 |---|---|---|
-| Opus 4.7 | $15/M input, $75/M output | $200/月吃到飽 |
-| 10 萬 tokens/天 | ~$225/月 | $200/月 |
-| 50 萬 tokens/天 | ~$1,125/月 | $200/月 |
-| 損益平衡 | ~8.9 萬 tokens/天 | 超過就是賺 |
+| Opus 4.8 | $5/M input, $25/M output | $200/月吃到飽 |
+| 10 萬 tokens/天 | ~$75/月 | $200/月 |
+| 50 萬 tokens/天 | ~$375/月 | $200/月 |
+| 損益平衡 | ~26.7 萬 tokens/天 | 超過就是賺 |
 
 ---
 
