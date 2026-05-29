@@ -136,8 +136,8 @@ openclaw config set 'models.providers.claude-proxy' --json '{
       "maxTokens": 16384
     },
     {
-      "id": "claude-opus-4-7",
-      "name": "Claude Opus 4.7 (proxy)",
+      "id": "claude-opus-4-8",
+      "name": "Claude Opus 4.8 (proxy)",
       "reasoning": true,
       "input": ["text", "image"],
       "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
@@ -167,7 +167,7 @@ openclaw config set 'models.providers.claude-proxy' --json '{
 #   base_url: http://localhost:3456/v1
 #   api_key: ''
 #   api_mode: chat_completions
-#   model: claude-opus-4-7
+#   model: claude-opus-4-8
 # - name: claude-proxy
 #   base_url: http://localhost:3456/v1
 #   api_key: ''
@@ -183,7 +183,7 @@ openclaw config set 'models.providers.claude-proxy' --json '{
 openclaw config set agents.defaults.model.primary "claude-proxy/claude-sonnet-4-6"
 
 # 4-3. 設定 fallback（可選）
-openclaw config set agents.defaults.model.fallbacks --json '["claude-proxy/claude-opus-4-7", "claude-proxy/claude-haiku-4-5"]'
+openclaw config set agents.defaults.model.fallbacks --json '["claude-proxy/claude-opus-4-8", "claude-proxy/claude-haiku-4-5"]'
 ```
 
 ---
@@ -273,7 +273,7 @@ Claude Proxy v5.0 (port 3456)    ← LaunchAgent: com.hermes.claude-proxy
   │
   ▼
 Claude Max Subscription (OAuth)
-  Opus 4.7 · Sonnet 4.6 · Haiku 4.5
+  Opus 4.8 · Sonnet 4.6 · Haiku 4.5
 ```
 
 所有 LaunchAgent 開機自動啟動。Hermes 和 OpenClaw 可同時連接同一個 proxy。

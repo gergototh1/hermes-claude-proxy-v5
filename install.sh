@@ -220,7 +220,7 @@ echo '    "baseUrl": "http://localhost:3456/v1",'
 echo "    \"apiKey\": \"${API_KEY}\","
 echo '    "api": "openai-completions",'
 echo '    "models": ['
-echo '      {"id": "claude-opus-4-7", "name": "Claude Opus 4.7 (proxy)", "reasoning": true, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384},'
+echo '      {"id": "claude-opus-4-8", "name": "Claude Opus 4.8 (proxy)", "reasoning": true, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384},'
 echo '      {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 (proxy)", "reasoning": true, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384},'
 echo '      {"id": "claude-haiku-4-5", "name": "Claude Haiku 4.5 (proxy)", "reasoning": false, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 8192}'
 echo '    ]'

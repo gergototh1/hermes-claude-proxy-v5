@@ -107,7 +107,7 @@ custom_providers:
   base_url: http://localhost:3456/v1
   api_key: ''
   api_mode: chat_completions
-  model: claude-opus-4-7
+  model: claude-opus-4-8
 - name: claude-proxy
   base_url: http://localhost:3456/v1
   api_key: ''
@@ -151,8 +151,8 @@ launchctl load ~/Library/LaunchAgents/ai.hermes.gateway.plist
       "maxTokens": 16384
     },
     {
-      "id": "claude-opus-4-7",
-      "name": "Claude Opus 4.7 (proxy)",
+      "id": "claude-opus-4-8",
+      "name": "Claude Opus 4.8 (proxy)",
       "reasoning": true,
       "input": ["text", "image"],
       "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},

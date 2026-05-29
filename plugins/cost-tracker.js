@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const API_PRICING = {
-  'claude-opus-4-7':    { input: 15.00, output: 75.00 },  // per 1M tokens
+  'claude-opus-4-8':    { input: 5.00,  output: 25.00 },  // per 1M tokens（官方標準計價）
+  'claude-opus-4-7':    { input: 5.00,  output: 25.00 },  // 修正：原誤植為 15/75（舊 Opus 4/4.1 價）
   'claude-sonnet-4-6':  { input: 3.00,  output: 15.00 },
   'claude-haiku-4-5':   { input: 0.80,  output: 4.00 },
 };
@@ -35,7 +36,7 @@ module.exports = {
   postProcess(text, model) {
     if (!text) return text;
 
-    const pricing = API_PRICING[model] || API_PRICING['claude-opus-4-7'];
+    const pricing = API_PRICING[model] || API_PRICING['claude-opus-4-8'];
     const outputTokens = Math.ceil(text.length / 4);
     const saved = (outputTokens / 1_000_000) * pricing.output;
 

@@ -1,6 +1,6 @@
-Opus 4.7 API 一個月燒幾千美金。
+Opus 4.8 API 一個月燒幾千美金。
 
-我花 $200 搞了一個 24/7 的 Telegram AI 助手，大腦是 Opus 4.7，能聊天、能讀寫檔案、能跑 shell、能搜網、能讀圖。
+我花 $200 搞了一個 24/7 的 Telegram AI 助手，大腦是 Opus 4.8，能聊天、能讀寫檔案、能跑 shell、能搜網、能讀圖。
 
 做法：
 
@@ -35,7 +35,7 @@ bash install.sh
 
 Hermes 和 OpenClaw 可共用同一個 proxy（v5 stateless 已排除跨 client 污染），或各 fork 一份獨立 proxy 跑不同 port（完全隔離，推薦）。原始碼全部在 GitHub。
 
-$200/月，你自己的 Opus 4.7 隨身顧問。
+$200/月，你自己的 Opus 4.8 隨身顧問。
 
 ---
 

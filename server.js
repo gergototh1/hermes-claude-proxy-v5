@@ -212,10 +212,10 @@ function auth(req, res, next) {
 // ---------------------------------------------------------------------------
 function resolveModel(model) {
   if (!model) return 'claude-sonnet-4-6';
-  // 完整 model ID 直接使用（如 claude-opus-4-7）
+  // 完整 model ID 直接使用（如 claude-opus-4-8）
   if (model.startsWith('claude-')) return model;
   // 短別名映射
-  if (model.includes('opus')) return 'claude-opus-4-7';
+  if (model.includes('opus')) return 'claude-opus-4-8';
   if (model.includes('haiku')) return 'claude-haiku-4-5';
   return 'claude-sonnet-4-6';
 }
@@ -372,7 +372,7 @@ app.get('/v1/models', auth, (req, res) => {
   res.json({
     object: 'list',
     data: [
-      { id: 'claude-opus-4-7', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+      { id: 'claude-opus-4-8', object: 'model', created: 1700000000, owned_by: 'anthropic' },
       { id: 'claude-sonnet-4-6', object: 'model', created: 1700000000, owned_by: 'anthropic' },
       { id: 'claude-haiku-4-5', object: 'model', created: 1700000000, owned_by: 'anthropic' },
     ],

@@ -70,7 +70,7 @@ v4 的 persistent session 節省了 system prompt 重複載入，代價是**跨 
 | Prompt Caching | 靠 Anthropic 原生 5 分鐘 TTL 快取，system prompt 反覆使用時成本降至 10% |
 | 內建工具支援 | WebSearch、WebFetch、Bash、Read、Write、Edit、Grep、Glob |
 | OpenAI-compatible API | `/v1/chat/completions` — 相容 Hermes、OpenClaw 及所有 OpenAI 客戶端 |
-| 多模型路由 | Opus 4.7 / Sonnet 4.6 / Haiku 4.5，透過 `model` 參數切換 |
+| 多模型路由 | Opus 4.8 / Sonnet 4.6 / Haiku 4.5，透過 `model` 參數切換 |
 | `STATELESS_MODE` 開關 | 環境變數 `=1`（預設）走 stateless；`=0` 退回舊 persistent session |
 | 並行處理 | 最多 `MAX_CONCURRENT` 個請求同時執行（無 session 序列化限制） |
 | Plugin 系統 | pre/post 處理 hooks，放 `.js` 到 `plugins/` 即生效 |
@@ -217,8 +217,8 @@ curl http://localhost:3456/stats
 ## 多模型路由
 
 ```bash
-# Opus 4.7 — 複雜推理，最強
-"model": "claude-opus-4-7"
+# Opus 4.8 — 複雜推理，最強
+"model": "claude-opus-4-8"
 
 # Sonnet 4.6 — 快速，品質好（推薦）
 "model": "claude-sonnet-4-6"
@@ -290,7 +290,7 @@ custom_providers:
   base_url: http://localhost:3456/v1
   api_key: ''
   api_mode: chat_completions
-  model: claude-opus-4-7
+  model: claude-opus-4-8
 - name: claude-proxy
   base_url: http://localhost:3456/v1
   api_key: ''
@@ -334,8 +334,8 @@ launchctl load ~/Library/LaunchAgents/ai.hermes.gateway.plist
       "maxTokens": 16384
     },
     {
-      "id": "claude-opus-4-7",
-      "name": "Claude Opus 4.7 (proxy)",
+      "id": "claude-opus-4-8",
+      "name": "Claude Opus 4.8 (proxy)",
       "reasoning": true,
       "input": ["text", "image"],
       "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
@@ -406,7 +406,7 @@ launchctl load ~/Library/LaunchAgents/ai.openclaw.gateway.plist
 │                          ▼                                       │
 │  ┌──────────────────────────────────────────────────────┐     │
 │  │  Claude Max Subscription (OAuth)                      │     │
-│  │  Opus 4.7 · Sonnet 4.6 · Haiku 4.5                  │     │
+│  │  Opus 4.8 · Sonnet 4.6 · Haiku 4.5                  │     │
 │  └──────────────────────────────────────────────────────┘     │
 └──────────────────────────────────────────────────────────────┘
 ```
