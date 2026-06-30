@@ -127,8 +127,8 @@ openclaw config set 'models.providers.claude-proxy' --json '{
   "api": "openai-completions",
   "models": [
     {
-      "id": "claude-sonnet-4-6",
-      "name": "Claude Sonnet 4.6 (proxy)",
+      "id": "claude-sonnet-5",
+      "name": "Claude Sonnet 5 (proxy)",
       "reasoning": true,
       "input": ["text", "image"],
       "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
@@ -158,7 +158,7 @@ openclaw config set 'models.providers.claude-proxy' --json '{
 
 # 4-1b. 設定 Hermes Agent（編輯 ~/.hermes/config.yaml）
 # model:
-#   default: claude-sonnet-4-6
+#   default: claude-sonnet-5
 #   provider: claude-proxy
 #   base_url: http://localhost:3456/v1
 #
@@ -172,7 +172,7 @@ openclaw config set 'models.providers.claude-proxy' --json '{
 #   base_url: http://localhost:3456/v1
 #   api_key: ''
 #   api_mode: chat_completions
-#   model: claude-sonnet-4-6
+#   model: claude-sonnet-5
 # - name: claude-proxy
 #   base_url: http://localhost:3456/v1
 #   api_key: ''
@@ -180,7 +180,7 @@ openclaw config set 'models.providers.claude-proxy' --json '{
 #   model: claude-haiku-4-5
 
 # 4-2. 設定 OpenClaw primary model
-openclaw config set agents.defaults.model.primary "claude-proxy/claude-sonnet-4-6"
+openclaw config set agents.defaults.model.primary "claude-proxy/claude-sonnet-5"
 
 # 4-3. 設定 fallback（可選）
 openclaw config set agents.defaults.model.fallbacks --json '["claude-proxy/claude-opus-4-8", "claude-proxy/claude-haiku-4-5"]'
@@ -228,7 +228,7 @@ curl -s http://localhost:3456/health | python3 -m json.tool
 # 6-2. Proxy API 測試
 curl -s -X POST http://localhost:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"Say OK"}]}'
+  -d '{"model":"claude-sonnet-5","messages":[{"role":"user","content":"Say OK"}]}'
 
 # 6-3. OpenClaw Gateway 狀態
 openclaw gateway status
@@ -273,7 +273,7 @@ Claude Proxy v5.0 (port 3456)    ← LaunchAgent: com.hermes.claude-proxy
   │
   ▼
 Claude Max Subscription (OAuth)
-  Opus 4.8 · Sonnet 4.6 · Haiku 4.5
+  Opus 4.8 · Sonnet 5 · Haiku 4.5
 ```
 
 所有 LaunchAgent 開機自動啟動。Hermes 和 OpenClaw 可同時連接同一個 proxy。

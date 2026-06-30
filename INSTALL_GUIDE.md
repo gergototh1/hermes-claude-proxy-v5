@@ -75,7 +75,7 @@ curl -s http://localhost:3456/health | python3 -m json.tool
 curl -s --max-time 30 -X POST http://localhost:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-6",
+    "model": "claude-sonnet-5",
     "messages": [{"role": "user", "content": "Say OK"}]
   }' | python3 -m json.tool
 
@@ -83,7 +83,7 @@ curl -s --max-time 30 -X POST http://localhost:3456/v1/chat/completions \
 curl -s --max-time 60 -X POST http://localhost:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-6",
+    "model": "claude-sonnet-5",
     "messages": [{"role": "user", "content": "搜尋今天的新聞頭條"}]
   }' | python3 -m json.tool
 ```
@@ -98,7 +98,7 @@ curl -s --max-time 60 -X POST http://localhost:3456/v1/chat/completions \
 
 ```yaml
 model:
-  default: claude-sonnet-4-6
+  default: claude-sonnet-5
   provider: claude-proxy
   base_url: http://localhost:3456/v1
 
@@ -112,7 +112,7 @@ custom_providers:
   base_url: http://localhost:3456/v1
   api_key: ''
   api_mode: chat_completions
-  model: claude-sonnet-4-6
+  model: claude-sonnet-5
 - name: claude-proxy
   base_url: http://localhost:3456/v1
   api_key: ''
@@ -142,8 +142,8 @@ launchctl load ~/Library/LaunchAgents/ai.hermes.gateway.plist
   "api": "openai-completions",
   "models": [
     {
-      "id": "claude-sonnet-4-6",
-      "name": "Claude Sonnet 4.6 (proxy)",
+      "id": "claude-sonnet-5",
+      "name": "Claude Sonnet 5 (proxy)",
       "reasoning": true,
       "input": ["text", "image"],
       "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
@@ -180,7 +180,7 @@ launchctl load ~/Library/LaunchAgents/ai.hermes.gateway.plist
 "agents": {
   "defaults": {
     "model": {
-      "primary": "claude-proxy/claude-sonnet-4-6"
+      "primary": "claude-proxy/claude-sonnet-5"
     }
   }
 }

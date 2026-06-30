@@ -221,19 +221,19 @@ echo "    \"apiKey\": \"${API_KEY}\","
 echo '    "api": "openai-completions",'
 echo '    "models": ['
 echo '      {"id": "claude-opus-4-8", "name": "Claude Opus 4.8 (proxy)", "reasoning": true, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384},'
-echo '      {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 (proxy)", "reasoning": true, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384},'
+echo '      {"id": "claude-sonnet-5", "name": "Claude Sonnet 5 (proxy)", "reasoning": true, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384},'
 echo '      {"id": "claude-haiku-4-5", "name": "Claude Haiku 4.5 (proxy)", "reasoning": false, "input": ["text","image"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 8192}'
 echo '    ]'
 echo '  }'
 echo ""
 echo "  Then set primary model:"
-echo "    openclaw config set agents.defaults.model.primary \"claude-proxy/claude-sonnet-4-6\""
+echo "    openclaw config set agents.defaults.model.primary \"claude-proxy/claude-sonnet-5\""
 echo ""
 echo "  ── Hermes Agent ────────────────────────────────"
 echo "  Edit ~/.hermes/config.yaml:"
 echo ""
 echo "    model:"
-echo "      default: claude-sonnet-4-6"
+echo "      default: claude-sonnet-5"
 echo "      provider: claude-proxy"
 echo "      base_url: http://localhost:3456/v1"
 echo ""
@@ -242,5 +242,5 @@ echo "    - name: claude-proxy"
 echo "      base_url: http://localhost:3456/v1"
 echo "      api_key: '${API_KEY}'"
 echo "      api_mode: chat_completions"
-echo "      model: claude-sonnet-4-6"
+echo "      model: claude-sonnet-5"
 echo ""
