@@ -151,15 +151,16 @@ async function sendStateless(model, userMessage) {
 
 // [tools] Client-side tool calling. Uses query() + an in-process MCP server,
 // because unstable_v2_* has no mcpServers option. See tool-bridge.js.
-async function sendWithTools(model, userMessage, openaiTools) {
+async function sendWithTools(model, userMessage, openaiTools, onDelta) {
   const sdkModel = resolveModel(model);
   const { runWithClientTools } = require('./tool-bridge');
   return runWithClientTools({
     sdk: getSDK(),
     prompt: userMessage,
     model: sdkModel,
-    openaiTools,
+    openaiTools: openaiTools || [],
     allowedTools: ALLOWED_TOOLS,
+    onDelta,
   });
 }
 
@@ -356,10 +357,34 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
     let toolCalls = [];
     const hasTools = Array.isArray(tools) && tools.length > 0;
     let lastError = null;
+
+    // [stream] Real SSE. Headers and the first chunk go out on the first token,
+    // not after the whole answer — a 50s turn used to send nothing at all until
+    // it finished, which reads as a hang on the client.
+    const chunkOf = (delta, finish = null) => `data: ${JSON.stringify({
+      id: requestId, object: 'chat.completion.chunk', created,
+      model: model || 'claude-sonnet-5',
+      choices: [{ index: 0, delta, finish_reason: finish }],
+    })}\n\n`;
+
+    let streamStarted = false;
+    const startStream = () => {
+      if (streamStarted) return;
+      streamStarted = true;
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Request-Id', requestId);
+      res.write(chunkOf({ role: 'assistant' }));
+    };
+    const onDelta = stream
+      ? (t) => { startStream(); res.write(chunkOf({ content: t })); }
+      : null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        if (hasTools) {
-          const r = await withTimeout(sendWithTools(model, prompt, tools), REQUEST_TIMEOUT, 'tool request');
+        if (hasTools || stream) {
+          // query() is the only path that can stream partials or register tools
+          const r = await withTimeout(sendWithTools(model, prompt, tools, onDelta), REQUEST_TIMEOUT, 'request');
           result = r.text;
           toolCalls = r.toolCalls;
         } else {
@@ -371,6 +396,8 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
         break;
       } catch (err) {
         lastError = err;
+        // Bytes already sent — a retry would duplicate the answer mid-stream.
+        if (streamStarted) break;
         if (attempt < MAX_RETRIES) {
           console.log(`  Retry ${attempt + 1}/${MAX_RETRIES}: ${err.message}`);
           await new Promise(r => setTimeout(r, 2000));
@@ -394,29 +421,17 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
     }));
     const finishReason = openaiToolCalls.length ? 'tool_calls' : 'stop';
 
-    // Streaming response (simulated SSE)
+    // Streaming response — real SSE. Text deltas already went out via onDelta
+    // while the model was producing them; only the tail is left here.
     if (stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Request-Id', requestId);
-
-      const chunk = {
-        id: requestId, object: 'chat.completion.chunk', created,
-        model: model || 'claude-sonnet-5',
-        choices: [{
-          index: 0,
-          delta: openaiToolCalls.length
-            ? { role: 'assistant', content: result || null, tool_calls: openaiToolCalls }
-            : { role: 'assistant', content: result },
-          finish_reason: null,
-        }],
-      };
-      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-      res.write(`data: ${JSON.stringify({ id: requestId, object: 'chat.completion.chunk', created, model: model || 'claude-sonnet-5', choices: [{ index: 0, delta: {}, finish_reason: finishReason }] })}\n\n`);
+      startStream();  // no-op if deltas already opened it (empty answers, tool-only turns)
+      if (openaiToolCalls.length) {
+        res.write(chunkOf({ tool_calls: openaiToolCalls }));
+      }
+      res.write(chunkOf({}, finishReason));
       res.write('data: [DONE]\n\n');
       res.end();
-      console.log(`  DONE ${requestId} (stream) | ${result.length}c | ${durationMs}ms`);
+      console.log(`  DONE ${requestId} (stream) | ${result.length}c${openaiToolCalls.length ? ` | ${openaiToolCalls.length} tool_call(s)` : ''} | ${durationMs}ms`);
       return;
     }
 

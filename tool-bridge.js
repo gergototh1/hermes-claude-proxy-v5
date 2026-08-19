@@ -85,7 +85,7 @@ function sanitizeName(name) {
  *
  * @returns {Promise<{text: string, toolCalls: Array<{id,name,arguments}>}>}
  */
-async function runWithClientTools({ sdk, prompt, model, openaiTools, allowedTools, signal }) {
+async function runWithClientTools({ sdk, prompt, model, openaiTools, allowedTools, signal, onDelta }) {
   const { query, createSdkMcpServer, tool } = sdk;
 
   const nameMap = new Map();   // sanitized -> original OpenAI name
@@ -110,19 +110,17 @@ async function runWithClientTools({ sdk, prompt, model, openaiTools, allowedTool
     ));
   }
 
-  if (!sdkTools.length) return { text: '', toolCalls: [] };
-
-  const server = createSdkMcpServer({
-    name: MCP_SERVER_NAME,
-    version: '1.0.0',
-    tools: sdkTools,
-  });
+  const server = sdkTools.length
+    ? createSdkMcpServer({ name: MCP_SERVER_NAME, version: '1.0.0', tools: sdkTools })
+    : null;
 
   const q = query({
     prompt,
     options: {
       model,
-      mcpServers: { [MCP_SERVER_NAME]: server },
+      // [stream] real token deltas instead of one buffered chunk at the end
+      includePartialMessages: Boolean(onDelta),
+      ...(server ? { mcpServers: { [MCP_SERVER_NAME]: server } } : {}),
       // Client tools are deliberately NOT allowlisted — that is what routes
       // them through canUseTool instead of being auto-approved.
       allowedTools: allowedTools || [],
@@ -160,7 +158,19 @@ async function runWithClientTools({ sdk, prompt, model, openaiTools, allowedTool
   for await (const msg of q) {
     if (signal && signal.aborted) break;
 
-    if (msg.type === 'assistant' && msg.message && Array.isArray(msg.message.content)) {
+    // [stream] BetaRawMessageStreamEvent — forward text deltas as they arrive.
+    if (onDelta && msg.type === 'stream_event' && msg.event) {
+      const ev = msg.event;
+      if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta' && ev.delta.text) {
+        text += ev.delta.text;
+        onDelta(ev.delta.text);
+      }
+      continue;
+    }
+
+    // With partial messages on, the final assistant message repeats text we
+    // already streamed — don't append it twice.
+    if (msg.type === 'assistant' && !onDelta && msg.message && Array.isArray(msg.message.content)) {
       for (const block of msg.message.content) {
         if (block.type === 'text' && block.text) text += block.text;
       }
@@ -170,7 +180,10 @@ async function runWithClientTools({ sdk, prompt, model, openaiTools, allowedTool
     if (captured.length) break;
 
     if (msg.type === 'result') {
-      if (!text && typeof msg.result === 'string') text = msg.result;
+      if (!text && typeof msg.result === 'string') {
+        text = msg.result;
+        if (onDelta && text) onDelta(text);
+      }
       break;
     }
   }
