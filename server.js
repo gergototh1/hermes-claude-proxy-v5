@@ -23,6 +23,23 @@ const fs = require('fs');
 const path = require('path');
 
 // ---------------------------------------------------------------------------
+// [harden] minimal .env loader (no dependency) — real env vars always win
+// ---------------------------------------------------------------------------
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) continue;
+      const i = t.indexOf('=');
+      if (i < 0) continue;
+      const k = t.slice(0, i).trim();
+      if (!(k in process.env)) process.env[k] = t.slice(i + 1).trim().replace(/^["']|["']$/g, '');
+    }
+  }
+} catch (e) { console.warn(`  [env] could not read .env: ${e.message}`); }
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 const PORT = parseInt(process.env.PORT || '3456', 10);
@@ -30,7 +47,15 @@ const API_KEY = process.env.API_KEY || '';
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT || '2', 10);
 const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT || '300000', 10);
 const MAX_RETRIES = parseInt(process.env.MAX_RETRIES || '1', 10);
-const PLUGINS_DIR = process.env.PLUGINS_DIR || path.join(__dirname, 'plugins');
+// [harden] resolve relative to __dirname so require() gets an absolute path, not a module name
+const PLUGINS_DIR = path.resolve(__dirname, process.env.PLUGINS_DIR || 'plugins');
+// [harden] bind to loopback by default; set HOST=0.0.0.0 only if you really mean it
+const HOST = process.env.HOST || '127.0.0.1';
+// [harden] read-only tool set by default. Bash/Write/Edit are opt-in via ALLOWED_TOOLS.
+const DEFAULT_ALLOWED_TOOLS = ['WebSearch', 'WebFetch', 'Read', 'Grep', 'Glob'];
+const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS
+  ? process.env.ALLOWED_TOOLS.split(',').map(t => t.trim()).filter(Boolean)
+  : DEFAULT_ALLOWED_TOOLS;
 const STATELESS_MODE = process.env.STATELESS_MODE === '1';
 
 let activeRequests = 0;
@@ -66,10 +91,7 @@ async function sendToSession(model, userMessage) {
           const { unstable_v2_createSession } = getSDK();
           sessions[sdkModel] = unstable_v2_createSession({
             model: sdkModel,
-            allowedTools: [
-              'WebSearch', 'WebFetch', 'Read', 'Grep', 'Glob',
-              'Bash(*)', 'Write', 'Edit',
-            ],
+            allowedTools: ALLOWED_TOOLS,
           });
           console.log(`  [session] Created persistent session for model=${sdkModel}`);
         }
@@ -104,10 +126,7 @@ async function sendStateless(model, userMessage) {
   const { unstable_v2_prompt } = getSDK();
   const result = await unstable_v2_prompt(userMessage, {
     model: sdkModel,
-    allowedTools: [
-      'WebSearch', 'WebFetch', 'Read', 'Grep', 'Glob',
-      'Bash(*)', 'Write', 'Edit',
-    ],
+    allowedTools: ALLOWED_TOOLS,
   });
   if (result.is_error || result.subtype !== 'success') {
     const msg = (result.errors && result.errors.join('; ')) || `LLM error: ${result.subtype}`;
@@ -198,7 +217,6 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 function auth(req, res, next) {
-  if (!API_KEY) return next();
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : header;
   if (token !== API_KEY) {
@@ -414,14 +432,29 @@ app.get('/stats', auth, (req, res) => {
 // ---------------------------------------------------------------------------
 loadPlugins();
 
-app.listen(PORT, '0.0.0.0', () => {
+// [harden] refuse to start without auth — this port can drive an agent on your machine
+if (!API_KEY) {
+  console.error('\n  FATAL: API_KEY is not set. The proxy would accept unauthenticated requests.');
+  console.error('  Generate one:  node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'hex\'))"');
+  console.error('  Then put it in .env as API_KEY=...\n');
+  process.exit(1);
+}
+if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
+  console.warn(`  WARNING: binding to ${HOST} exposes this proxy beyond localhost.`);
+}
+if (ALLOWED_TOOLS.some(t => /^(Bash|Write|Edit)/.test(t))) {
+  console.warn(`  WARNING: mutating tools enabled: ${ALLOWED_TOOLS.filter(t => /^(Bash|Write|Edit)/.test(t)).join(', ')}`);
+}
+
+app.listen(PORT, HOST, () => {
   console.log(`
 ╔════════════════════════════════════════════════════╗
 ║  Hermes ↔ Claude Code Proxy v5.0                  ║
 ║  Stateless Edition                                ║
 ╠════════════════════════════════════════════════════╣
-║  Port: ${String(PORT).padEnd(42)}║
-║  Auth: ${(API_KEY ? 'Enabled' : 'Disabled (set API_KEY)').padEnd(42)}║
+║  Bind: ${(HOST + ':' + PORT).padEnd(42)}║
+║  Auth: ${'Enabled (API_KEY)'.padEnd(42)}║
+║  Tools:${ALLOWED_TOOLS.join(',').slice(0, 42).padEnd(43)}║
 ║  Mode: ${(STATELESS_MODE ? 'Stateless (per-request)' : 'Session (legacy)').padEnd(42)}║
 ║  Concurrent: ${String(MAX_CONCURRENT).padEnd(36)}║
 ║  Retries: ${String(MAX_RETRIES).padEnd(39)}║
