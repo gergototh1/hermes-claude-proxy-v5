@@ -60,7 +60,21 @@ const STATELESS_MODE = process.env.STATELESS_MODE === '1';
 
 let activeRequests = 0;
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL_MS = 3000;
+// [fix] was hardcoded 3000ms — a hard floor between *all* requests, which
+// serialises every agent on the box. Configurable, default off.
+const MIN_REQUEST_INTERVAL_MS = parseInt(process.env.MIN_REQUEST_INTERVAL_MS || '0', 10);
+
+// [fix] REQUEST_TIMEOUT was declared but never applied to the SDK call. A hung
+// call held its concurrency slot forever; after MAX_CONCURRENT hangs the proxy
+// rejected everything with 429 permanently. Observed: 25 REQ vs 15 DONE/FAIL.
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    if (timer.unref) timer.unref();
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 // ---------------------------------------------------------------------------
 // Claude Agent SDK — persistent session 管理
@@ -308,6 +322,13 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
   }
 
   activeRequests++;
+  // [fix] One idempotent release point. Previously three scattered
+  // `activeRequests--` sites could be bypassed (client disconnect mid-stream,
+  // throw before the decrement), leaking the counter until the proxy wedged.
+  let released = false;
+  const release = () => { if (!released) { released = true; activeRequests--; } };
+  res.on('close', release);
+
   const requestId = `chatcmpl-${randomUUID().replace(/-/g, '').slice(0, 24)}`;
   const created = Math.floor(Date.now() / 1000);
 
@@ -338,11 +359,14 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         if (hasTools) {
-          const r = await sendWithTools(model, prompt, tools);
+          const r = await withTimeout(sendWithTools(model, prompt, tools), REQUEST_TIMEOUT, 'tool request');
           result = r.text;
           toolCalls = r.toolCalls;
         } else {
-          result = await (STATELESS_MODE ? sendStateless : sendToSession)(model, prompt);
+          result = await withTimeout(
+            (STATELESS_MODE ? sendStateless : sendToSession)(model, prompt),
+            REQUEST_TIMEOUT, 'request',
+          );
         }
         break;
       } catch (err) {
@@ -392,12 +416,10 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
       res.write(`data: ${JSON.stringify({ id: requestId, object: 'chat.completion.chunk', created, model: model || 'claude-sonnet-5', choices: [{ index: 0, delta: {}, finish_reason: finishReason }] })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
-      activeRequests--;
       console.log(`  DONE ${requestId} (stream) | ${result.length}c | ${durationMs}ms`);
       return;
     }
 
-    activeRequests--;
     const response = {
       id: requestId, object: 'chat.completion', created,
       model: model || 'claude-sonnet-5',
@@ -418,11 +440,12 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
     res.json(response);
 
   } catch (err) {
-    activeRequests--;
     const durationMs = Date.now() - startTime;
     trackRequest(model, prompt.length, 0, durationMs, true);
     console.error(`  FAIL ${requestId}: ${err.message} (${durationMs}ms)`);
     res.status(500).json({ error: { message: err.message, type: 'server_error' } });
+  } finally {
+    release();
   }
 });
 
