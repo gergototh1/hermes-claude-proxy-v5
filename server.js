@@ -135,6 +135,20 @@ async function sendStateless(model, userMessage) {
   return result.result || '';
 }
 
+// [tools] Client-side tool calling. Uses query() + an in-process MCP server,
+// because unstable_v2_* has no mcpServers option. See tool-bridge.js.
+async function sendWithTools(model, userMessage, openaiTools) {
+  const sdkModel = resolveModel(model);
+  const { runWithClientTools } = require('./tool-bridge');
+  return runWithClientTools({
+    sdk: getSDK(),
+    prompt: userMessage,
+    model: sdkModel,
+    openaiTools,
+    allowedTools: ALLOWED_TOOLS,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Request Stats
 // ---------------------------------------------------------------------------
@@ -318,10 +332,18 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
 
     // 透過 persistent session 送出請求
     let result = '';
+    let toolCalls = [];
+    const hasTools = Array.isArray(tools) && tools.length > 0;
     let lastError = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        result = await (STATELESS_MODE ? sendStateless : sendToSession)(model, prompt);
+        if (hasTools) {
+          const r = await sendWithTools(model, prompt, tools);
+          result = r.text;
+          toolCalls = r.toolCalls;
+        } else {
+          result = await (STATELESS_MODE ? sendStateless : sendToSession)(model, prompt);
+        }
         break;
       } catch (err) {
         lastError = err;
@@ -331,13 +353,22 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
         }
       }
     }
-    if (!result && lastError) throw lastError;
+    if (!result && !toolCalls.length && lastError) throw lastError;
 
-    // Post-processing plugins
-    result = await runPostPlugins(result, model);
+    // Post-processing plugins (text only — never rewrite tool arguments)
+    if (!toolCalls.length) result = await runPostPlugins(result, model);
 
     const durationMs = Date.now() - startTime;
     trackRequest(model, prompt.length, result.length, durationMs);
+
+    // [tools] OpenAI wire shape: arguments is a JSON *string*, not an object.
+    const openaiToolCalls = toolCalls.map((tc, i) => ({
+      index: i,
+      id: tc.id,
+      type: 'function',
+      function: { name: tc.name, arguments: JSON.stringify(tc.arguments || {}) },
+    }));
+    const finishReason = openaiToolCalls.length ? 'tool_calls' : 'stop';
 
     // Streaming response (simulated SSE)
     if (stream) {
@@ -349,10 +380,16 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
       const chunk = {
         id: requestId, object: 'chat.completion.chunk', created,
         model: model || 'claude-sonnet-5',
-        choices: [{ index: 0, delta: { role: 'assistant', content: result }, finish_reason: null }],
+        choices: [{
+          index: 0,
+          delta: openaiToolCalls.length
+            ? { role: 'assistant', content: result || null, tool_calls: openaiToolCalls }
+            : { role: 'assistant', content: result },
+          finish_reason: null,
+        }],
       };
       res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-      res.write(`data: ${JSON.stringify({ id: requestId, object: 'chat.completion.chunk', created, model: model || 'claude-sonnet-5', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ id: requestId, object: 'chat.completion.chunk', created, model: model || 'claude-sonnet-5', choices: [{ index: 0, delta: {}, finish_reason: finishReason }] })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
       activeRequests--;
@@ -364,14 +401,20 @@ app.post('/v1/chat/completions', auth, async (req, res) => {
     const response = {
       id: requestId, object: 'chat.completion', created,
       model: model || 'claude-sonnet-5',
-      choices: [{ index: 0, message: { role: 'assistant', content: result }, finish_reason: 'stop' }],
+      choices: [{
+        index: 0,
+        message: openaiToolCalls.length
+          ? { role: 'assistant', content: result || null, tool_calls: openaiToolCalls.map(({ index, ...tc }) => tc) }
+          : { role: 'assistant', content: result },
+        finish_reason: finishReason,
+      }],
       usage: {
         prompt_tokens: Math.ceil(prompt.length / 4),
         completion_tokens: Math.ceil(result.length / 4),
         total_tokens: Math.ceil((prompt.length + result.length) / 4),
       },
     };
-    console.log(`  DONE ${requestId} | ${result.length}c | ${durationMs}ms`);
+    console.log(`  DONE ${requestId} | ${result.length}c${openaiToolCalls.length ? ` | ${openaiToolCalls.length} tool_call(s): ${openaiToolCalls.map(t => t.function.name).join(', ')}` : ''} | ${durationMs}ms`);
     res.json(response);
 
   } catch (err) {

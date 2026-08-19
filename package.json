@@ -1,7 +1,7 @@
 {
   "name": "hermes-claude-proxy",
   "version": "5.0.0",
-  "description": "Hermes Claude Code Proxy v5 \u2014 Stateless Edition, OpenAI-compatible endpoint via Agent SDK",
+  "description": "Hermes Claude Proxy v5 — OpenAI-compatible endpoint via Agent SDK, with client-side tool calling",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -25,6 +25,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.87",
     "express": "^4.21.0",
-    "uuid": "^11.0.0"
+    "uuid": "^11.0.0",
+    "zod": "^4.3.6"
   }
 }
